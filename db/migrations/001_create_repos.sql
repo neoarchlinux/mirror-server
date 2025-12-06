@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS repos (
+    id SERIAL PRIMARY KEY,
+    repo_name TEXT UNIQUE NOT NULL
+);
