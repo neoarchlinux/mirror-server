@@ -1,4 +1,5 @@
 .env
 /mirrors
 /nginx/log
+/nginx/ssl
 /gnupg
