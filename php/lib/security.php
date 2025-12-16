@@ -1,19 +1,29 @@
 <?php
 declare(strict_types=1);
 
-function computeHmac(array $postFields, string $fileContents, string $secret): string {
-    return hash_hmac('sha512', $fileContents, $secret);
+// Passwords
+
+$HASH_ALGO = PASSWORD_ARGON2ID;
+$HASH_OPTS = [
+    'memory_cost' => 1 << 17,
+    'time_cost'   => 3,
+    'threads'     => 1
+];
+
+function hashPassword(string $s): string {
+    return password_hash($s, $HASH_ALGO, $HASH_OPTS);
 }
 
-function assertHmac(array $postFields, string $fileContents, string $clientHmac, string $secret): void {
-    $serverHmac = computeHmac($postFields, $fileContents, $secret);
+function verifyPassword(string $s, string $h): bool {
+    return password_verify($s, $h);
+}
 
-    if (!hash_equals($serverHmac, $clientHmac)) {
-        http_response_code(403);
-        echo json_encode([
-            'success' => false,
-            'error' => 'HMAC verification failed'
-        ]);
-        exit;
-    }
+// Tokens
+
+function hashToken(string $t): string {
+    return hash('sha256', $t);
+}
+
+function verifyToken(string $t, string $h): bool {
+    return hash_equals(hashToken($t), $h);
 }

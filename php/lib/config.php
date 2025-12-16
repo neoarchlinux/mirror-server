@@ -10,6 +10,4 @@ $DB_NAME = getenv('DB_NAME');
 $DB_USER = getenv('DB_USER');
 $DB_PASS = getenv('DB_PASS');
 
-$UPLOAD_SECRET = getenv('UPLOAD_SECRET');
-
 date_default_timezone_set(getenv('TIMEZONE'));

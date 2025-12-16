@@ -9,16 +9,9 @@ function jsonError(string $msg, int $code = 400): void {
     exit;
 }
 
-function ensureDir(string $dir): void {
-    if (!is_dir($dir) && !mkdir($dir, 0775, true)) {
+function ensureDir(string $dir, int $mode = 0775): void {
+    if (!is_dir($dir) && !mkdir($dir, $mode, true)) {
         jsonError("Failed to create directory: $dir", 500);
-    }
-}
-
-function move(string $from, string $to): void {
-    if (!rename($from, $to)) {
-        exec(sprintf('mv %s %s', escapeshellarg($from), escapeshellarg($to)), $mvOutput, $mvCode);
-        if ($mvCode !== 0) jsonError("Failed to move $from to $to", 500);
     }
 }
 
@@ -46,4 +39,16 @@ function getIpAddress(): string {
     }
 
     return "0.0.0.0";
+}
+
+function copyPreserve(string $src, string $dst): void {
+    if (!copy($src, $dst)) {
+        jsonError("Failed to copy $src", 500);
+    }
+
+    $stat = stat($src);
+    if ($stat !== false) {
+        touch($dst, $stat['mtime'], $stat['atime']);
+        chmod($dst, $stat['mode'] & 0777);
+    }
 }

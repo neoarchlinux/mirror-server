@@ -56,42 +56,93 @@ function insertPackageVersion(
     string $packageVersion,
     string $packageRelease,
     string $fileName,
-    string $sourceIp
+    string $checksum,
+    int $sizeBytes,
+    int $uploadedBy,
+    string $sourceIp,
+    string $userAgent
 ): int {
-    $stmt = $pdo->prepare("UPDATE package_versions
-                           SET overwritten = TRUE
-                           WHERE package_id = :package_id
-                           AND repo_id = :repo_id
-                           AND arch_id = :arch_id");
+    try {
+        $pdo->beginTransaction();
 
-    $stmt->execute([
-        ':package_id' => $packageId,
-        ':repo_id' => $repoId,
-        ':arch_id' => $archId
-    ]);
+        $stmt = $pdo->prepare("UPDATE package_versions
+                            SET overwritten = TRUE
+                            WHERE package_id = :package_id
+                            AND repo_id = :repo_id
+                            AND arch_id = :arch_id
+                            AND (package_version || '-' || package_release) != (:package_version || '-' || :package_release)");
 
-    $stmt = $pdo->prepare("INSERT INTO package_versions(package_id, repo_id, arch_id, package_version, package_release, file_name)
-                           VALUES(:package_id, :repo_id, :arch_id, :package_version, :package_release, :file_name)
-                           RETURNING id");
+        $stmt->execute([
+            ':package_id' => $packageId,
+            ':repo_id' => $repoId,
+            ':arch_id' => $archId,
+            ':package_version' => $packageVersion,
+            ':package_release' => $packageRelease
+        ]);
 
-    $stmt->execute([
-        ':package_id' => $packageId,
-        ':repo_id' => $repoId,
-        ':arch_id' => $archId,
-        ':package_version' => $packageVersion,
-        ':package_release' => $packageRelease,
-        ':file_name' => $fileName
-    ]);
+        $stmt = $pdo->prepare("INSERT INTO package_versions(
+                                   package_id, repo_id, arch_id,
+                                   uploaded_by, package_version,
+                                   package_release, file_name,
+                                   checksum_sha256, size_bytes
+                               ) VALUES(
+                                   :package_id, :repo_id, :arch_id,
+                                   :uploaded_by, :package_version,
+                                   :package_release, :file_name,
+                                   :checksum_sha256, :size_bytes
+                               ) RETURNING id");
 
-    $pkgVersionId = (int) $stmt->fetchColumn();
+        $stmt->execute([
+            ':package_id' => $packageId,
+            ':repo_id' => $repoId,
+            ':arch_id' => $archId,
+            ':uploaded_by' => $uploadedBy,
+            ':package_version' => $packageVersion,
+            ':package_release' => $packageRelease,
+            ':file_name' => $fileName,
+            ':checksum_sha256' => $checksum,
+            ':size_bytes' => $sizeBytes
+        ]);
 
-    $stmt = $pdo->prepare("INSERT INTO package_history(package_version_id, source_ip)
-                           VALUES(:pkg_version_id, :ip)");
+        $pkgVersionId = (int) $stmt->fetchColumn();
 
-    $stmt->execute([
-        ':pkg_version_id' => $pkgVersionId,
-        ':ip' => $sourceIp
-    ]);
+        $stmt = $pdo->prepare("INSERT INTO package_history(package_version_id, source_ip, user_agent)
+                            VALUES(:pkg_version_id, :ip, :ua)");
 
-    return $pkgVersionId;
+        $stmt->execute([
+            ':pkg_version_id' => $pkgVersionId,
+            ':ip' => $sourceIp,
+            ':ua' => $userAgent
+        ]);
+
+        $pdo->commit();
+
+        return $pkgVersionId;
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
+}
+
+function getUserByUsername(PDO $pdo, string $username): mixed {
+    $stmt = $pdo->prepare("SELECT id, username, email, password_hash, created_at FROM users WHERE username = :u LIMIT 1");
+    $stmt->execute([':u' => $username]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: false;
+}
+
+function getUploadTokenByUser(PDO $pdo, int $userId) : mixed {
+    $stmt = $pdo->prepare("SELECT id, user_id, token_hash, signing_key_fingerprint, created_at FROM upload_tokens WHERE user_id = :u LIMIT 1");
+    $stmt->execute([':u' => $userId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: false;
+}
+
+function getPackageFilenamesForRepoArch(PDO $pdo, int $repoId, int $archId): array {
+    $stmt = $pdo->prepare("SELECT file_name FROM package_versions
+                           WHERE repo_id = :repo_id AND arch_id = :arch_id AND overwritten = FALSE
+                           ORDER BY created_at ASC");
+    $stmt->execute([':repo_id' => $repoId, ':arch_id' => $archId]);
+    $rows = $stmt->fetchAll(PDO::FETCH_COLUMN, 0);
+    return $rows ?: [];
 }

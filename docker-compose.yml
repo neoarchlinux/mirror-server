@@ -7,6 +7,7 @@ services:
     volumes:
       - ./php:/var/www/html:rw
       - ./mirrors:/var/mirrors:rw
+      - ./gnupg:/srv/http/.gnupg:rw
     environment:
       - TIMEZONE=${TIMEZONE}
       - DB_HOST=${DB_HOST}
@@ -14,10 +15,10 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASS=${DB_PASS}
-      - UPLOAD_SECRET=${UPLOAD_SECRET}
     restart: unless-stopped
     networks:
       - neoarch_net
+    user: "0:0"
 
   nginx:
     image: nginx:stable-alpine
