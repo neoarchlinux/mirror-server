@@ -3,7 +3,7 @@ services:
     build:
       context: ./images
       dockerfile: arch-php.Dockerfile
-    container_name: neoarch_mirrors_php
+    container_name: mirrors.neoarchlinux.org_php
     volumes:
       - ./php:/var/www/html:rw
       - ./mirrors:/var/mirrors:rw
@@ -17,12 +17,12 @@ services:
       - DB_PASS=${DB_PASS}
     restart: unless-stopped
     networks:
-      - neoarchlinux.org
+      - mirrors.neoarchlinux.org
     user: "0:0"
 
   nginx:
     image: nginx:stable-alpine
-    container_name: neoarch_mirrors_nginx
+    container_name: mirrors.neoarchlinux.org_nginx
     depends_on:
       - arch-php
     volumes:
@@ -33,11 +33,11 @@ services:
       - ./nginx/ssl:/etc/nginx/ssl:ro
     restart: unless-stopped
     networks:
-      - neoarchlinux.org
+      - mirrors.neoarchlinux.org
 
   postgres:
     image: postgres:18-alpine
-    container_name: neoarch_mirrors_postgres
+    container_name: mirrors.neoarchlinux.org_postgres
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
@@ -46,11 +46,11 @@ services:
       - neoarch_pgdata:/var/lib/postgresql/data
     restart: unless-stopped
     networks:
-      - neoarchlinux.org
+      - mirrors.neoarchlinux.org
 
 volumes:
   neoarch_pgdata:
 
 networks:
-  neoarchlinux.org:
+  mirrors.neoarchlinux.org:
     external: true
